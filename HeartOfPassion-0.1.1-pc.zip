@@ -1,0 +1,132 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>HeartOfPassion-0.1.1-pc.zip</title>
+    <meta name="title" content="HeartOfPassion-0.1.1-pc.zip">
+    <meta name="description" content="Fast and reliable file hosting service.">
+    <meta name="application-name" content="bzzhr.to">
+    <script src="/xz.js?v=3dd9b56cacb89629dc0d0a3915ceed31d3877c73-dirty" defer></script>
+    <link rel="stylesheet" href="/whysostylish.css?v=3dd9b56cacb89629dc0d0a3915ceed31d3877c73-dirty">
+    <link rel="stylesheet" href="/icons.css?v=3dd9b56cacb89629dc0d0a3915ceed31d3877c73-dirty">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
+    <meta name="htmx-config" content='{"methodsThatUseUrlParams":["get"]}'>
+
+    
+    
+    
+    
+    
+    
+</head>
+
+<body
+        class="min-h-screen p-1.5"
+        hx-ext="response-targets"
+        hx-ext="head-support">
+
+    <div>
+        <h1 class="text-center text-3xl font-bold mt-1 mb-0">BZZHR</h1>
+        <p class="text-center mt-0">Fast and reliable file hosting service.</p>
+    </div>
+
+
+
+    <ul class="navbar text-center p-0 mb-7" hx-ext="preload">
+        
+            <li><a href="/" preload="mouseover">Index</a></li>
+        
+
+        
+            <li><a href="/pricing" preload="mouseover">Pricing</a></li>
+        
+
+        
+            <li><a href="/blog" preload="mouseover">Blog</a></li>
+        
+
+        
+            <li><a href="/speedtest" preload="mouseover">Speedtest</a></li>
+        
+
+        
+            <li><a href="/developers" preload="mouseover">Developers</a></li>
+        
+
+        
+            <li><a href="/privacy" preload="mouseover">Privacy</a></li>
+        
+
+        
+            <li><a href="/terms" preload="mouseover">Terms</a></li>
+        
+
+        
+            <li><a href="/proxy" preload="mouseover">Proxy</a></li>
+        
+
+        
+            <li><a href="/contact" preload="mouseover">Contact</a></li>
+        
+
+        
+            <li><a href="/help" preload="mouseover">Help</a></li>
+        
+    </ul>
+
+
+<div class="max-w-2xl mx-auto mt-7">
+    <p class="file-name">HeartOfPassion-0.1.1-pc.zip</p>
+    <p class="text-disabled text-sm mt-2 mb-5">2685 downloads &middot; 3382 views &middot; Uploaded July 2, 2026</p>
+
+    <div class="download-row">
+        <a class="download-btn gay-button" hx-get="/dn4w50msj4on/download?t=MTc4MzIyOTIyMDk0MA.ENsCm87jFO4XjTrZ9utcV_hWTHuh2CjWuqrRYTOeUas" rel="noopener">Download File <span class="size">415.0MB</span></a>
+        <div class="flex flex-col gap-1 justify-center">
+            <a class="link-button gay-button whitespace-nowrap copy" onclick="copyDownloadLink('\/dn4w50msj4on\/download?t=MTc4MzIyOTIyMDk0MA.ENsCm87jFO4XjTrZ9utcV_hWTHuh2CjWuqrRYTOeUas')">Copy download link</a>
+            <a class="link-button gay-button whitespace-nowrap" hx-get="/dn4w50msj4on/download?t=MTc4MzIyOTIyMDk0MA.ENsCm87jFO4XjTrZ9utcV_hWTHuh2CjWuqrRYTOeUas&amp;alt=true">Slow? Try mirror 2</a>
+            <a class="link-button gay-button whitespace-nowrap" hx-get="/dn4w50msj4on/preview?t=MTc4MzIyOTIyMDk0MA.ENsCm87jFO4XjTrZ9utcV_hWTHuh2CjWuqrRYTOeUas" hx-swap="innerHTML" hx-target="#preview">Open in browser instead</a>
+        </div>
+    </div>
+
+    <p><strong>Note:</strong> F95ZONE.to</p>
+    <p><strong>MD5:</strong><code class="break-all">064792011c4bd69916b3110a50a9749c</code></p>
+    <p><strong>SHA-256:</strong><code class="break-all">d2f3c6e32ec5eaf095208b1f9179c97ad99b7dab383c9f3f30ba11ea6c4bbdb7</code></p>
+
+    
+    
+    
+    
+
+    <p class="mt-6">If you think this file violates content policy, <a href="/contact?file=dn4w50msj4on">report here</a></p>
+
+    <div class="warn mt-5">
+        <p class="lede text-danger font-bold">All downloads happen in this fucking window.</p>
+        <p>If you see any "Download" buttons in ads, be smart:</p>
+        <ul>
+            <li>Close that shit and come back here.</li>
+            <li>Real files are big. Ads are tiny (just MBs).</li>
+            <li>We don't run "Download Manager" popups. Ever.</li>
+        </ul>
+    </div>
+
+    <div class="mt-4" id="preview"></div>
+</div>
+
+<script>
+  
+
+  window.AdLink = "aHR0cHM6Ly9idXp6b25jbGljay5jb20vanVtcC9uZXh0LnBocD9yPTExMjgzOTk4"
+  
+</script>
+
+
+<div class="text-center text-danger mt-9">
+    <div id="flash"></div>
+</div>
+
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1639cc46df1ee8c',t:'MTc4MzIyNTU5NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+
+</html>

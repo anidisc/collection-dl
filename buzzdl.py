@@ -3,35 +3,17 @@ import os
 import sys
 import re
 import argparse
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
-import requests
-from bs4 import BeautifulSoup
+from lxml.html import fromstring
+from curl_cffi import requests as curl_requests
 from tqdm import tqdm
-
-try:
-    import cloudscraper
-    HAS_CLOUDSCRAPER = True
-except ImportError:
-    HAS_CLOUDSCRAPER = False
 
 SUPPORTED_DOMAINS = [
     'buzzheavier.com', 'bzzhr.co', 'bzzhr.to',
     'fuckingfast.net', 'fuckingfast.co',
     'flashbang.sh', 'trashbytes.net',
 ]
-
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-                  '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-}
-
-
-def get_session():
-    if HAS_CLOUDSCRAPER:
-        return cloudscraper.create_scraper()
-    return requests.Session()
 
 
 def resolve_url(input_str):
@@ -46,45 +28,57 @@ def resolve_url(input_str):
     raise ValueError(f"Input non valido: {input_str}")
 
 
-def get_filename(session, url):
-    try:
-        resp = session.get(url, headers=HEADERS, timeout=30)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        title = soup.title.string.strip() if soup.title else None
-        if title:
-            name = re.sub(r'[<>:"/\\|?*]', '', title)
+def extract_filename(tree, direct_url=None):
+    title_el = tree.xpath('//title')
+    if title_el:
+        name = title_el[0].text_content().strip()
+        if name:
+            return re.sub(r'[<>:"/\\|?*]', '', name)
+    if direct_url:
+        resp = curl_requests.head(direct_url, impersonate='chrome')
+        cd = resp.headers.get('content-disposition', '')
+        m = re.search(r'filename\*?=([^;]+)', cd)
+        if m:
+            name = m.group(1).strip().strip('"\'')
+            if name.startswith("UTF-8''"):
+                name = name[7:]
+            name = unquote(name)
             if name:
-                return name
-        span = soup.find('span', class_='text-2xl')
-        if span and span.text.strip():
-            return re.sub(r'[<>:"/\\|?*]', '', span.text.strip())
-    except Exception:
-        pass
+                return re.sub(r'[<>:"/\\|?*]', '', name)
+    span = tree.xpath('//span[contains(@class, "text-2xl")]')
+    if span:
+        name = span[0].text_content().strip()
+        if name:
+            return re.sub(r'[<>:"/\\|?*]', '', name)
     return None
 
 
-def get_direct_url(session, url):
-    download_url = url + '/download'
-    hx_headers = {
-        **HEADERS,
-        'referer': url,
+def get_direct_url(url):
+    resp = curl_requests.get(url, impersonate='chrome')
+    resp.raise_for_status()
+    tree = fromstring(resp.text)
+
+    els = tree.xpath('//a[contains(@hx-get, "download") and not(contains(@hx-get, "alt=true"))]')
+    if not els:
+        raise RuntimeError("Nessun link di download trovato nella pagina")
+
+    hx_get = els[0].get('hx-get')
+    download_url = f'https://{urlparse(url).netloc}{hx_get}'
+
+    hx_resp = curl_requests.get(download_url, headers={
         'hx-current-url': url,
         'hx-request': 'true',
-    }
-    resp = session.get(download_url, headers=hx_headers, allow_redirects=False, timeout=30)
-    direct = resp.headers.get('Hx-Redirect') or resp.headers.get('location')
-    if direct:
-        if direct.startswith('http'):
-            return direct
-        parsed = urlparse(url)
-        return f'{parsed.scheme}://{parsed.netloc}{direct}'
-    if resp.status_code in (301, 302, 303, 307, 308):
-        return resp.headers.get('location')
-    return None
+        'referer': url,
+    }, impersonate='chrome', allow_redirects=False)
+
+    direct = hx_resp.headers.get('hx-redirect')
+    if not direct:
+        raise RuntimeError("Nessun redirect (hx-redirect) nella risposta")
+
+    return direct, tree
 
 
-def download_file(session, url, filename, output_dir='.'):
+def download_file(url, filename, output_dir='.'):
     os.makedirs(output_dir, exist_ok=True)
     filepath = os.path.join(output_dir, filename)
 
@@ -92,7 +86,7 @@ def download_file(session, url, filename, output_dir='.'):
         print(f"[✓] {filename} — già scaricato")
         return filepath
 
-    resp = session.get(url, headers=HEADERS, stream=True, timeout=60)
+    resp = curl_requests.get(url, impersonate='chrome', stream=True)
     resp.raise_for_status()
     total = int(resp.headers.get('content-length', 0))
 
@@ -112,27 +106,20 @@ def main():
     parser = argparse.ArgumentParser(description='Download file da BuzzHeavier')
     parser.add_argument('input', help='URL o ID del file (es. https://bzzhr.to/dn4w50msj4on)')
     parser.add_argument('-o', '--output-dir', default='.', help='Directory di destinazione')
-    parser.add_argument('--no-cloudscraper', action='store_true', help='Non usare cloudscraper')
     args = parser.parse_args()
 
     url = resolve_url(args.input)
     print(f"[*] URL: {url}")
 
-    session = get_session()
-
-    filename = get_filename(session, url)
-    print(f"[*] Nome file: {filename or 'sconosciuto'}")
-
-    direct = get_direct_url(session, url)
-    if not direct:
-        print("[!] Impossibile ottenere il link diretto")
-        sys.exit(1)
+    direct, tree = get_direct_url(url)
     print(f"[*] Link diretto ottenuto")
 
+    filename = extract_filename(tree, direct)
     if not filename:
         filename = url.rstrip('/').split('/')[-1]
+    print(f"[*] Nome file: {filename}")
 
-    download_file(session, direct, filename, args.output_dir)
+    download_file(direct, filename, args.output_dir)
 
 
 if __name__ == '__main__':
