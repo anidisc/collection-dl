@@ -132,29 +132,65 @@ def download_node(session, node, base_dir):
         print(f"[✓] Salvato: {filepath}")
 
 
+def collect_ids_from_args(args, parser):
+    """
+    Collect content IDs from CLI arguments and/or a file.
+
+    Args:
+        args:   Parsed CLI arguments.
+        parser: ArgumentParser (used to raise errors consistently).
+
+    Returns:
+        List of content ID strings.
+    """
+    ids = []
+
+    if args.input:
+        for raw in args.input:
+            ids.append(raw.strip().rstrip('/').split('/')[-1])
+
+    if args.file:
+        try:
+            with open(args.file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        ids.append(line.rstrip('/').split('/')[-1])
+        except FileNotFoundError:
+            parser.error(f"File non trovato: {args.file}")
+
+    if not ids:
+        parser.error("Nessun ID fornito. Usa argomenti nella riga di comando o --file.")
+
+    return ids
+
+
 def main():
     """CLI entry point: parse args, create guest account, fetch tree, download."""
     parser = argparse.ArgumentParser(description='Download file da Gofile')
-    parser.add_argument('input', help='URL o ID (es. https://gofile.io/d/NCj7TH)')
+    parser.add_argument('input', nargs='*', help='URL o ID (es. https://gofile.io/d/NCj7TH)')
     parser.add_argument('-o', '--output-dir', default='.', help='Directory di destinazione')
+    parser.add_argument('-f', '--file', help='File con un link/ID per riga')
     args = parser.parse_args()
 
-    content_id = args.input.strip().rstrip('/').split('/')[-1]
-    print(f"[*] Content ID: {content_id}")
+    content_ids = collect_ids_from_args(args, parser)
+    print(f"[*] Totale contenuti da scaricare: {len(content_ids)}")
 
     session = requests.Session()
     session.headers.update(HEADERS)
 
     print("[*] Creazione account guest...")
     token = get_guest_token(session)
-    # Persist the token as a cookie so subsequent API calls are authenticated.
     session.cookies.set('accountToken', token, domain='.gofile.io', path='/')
 
-    print("[*] Richiesta informazioni contenuto...")
-    data = get_content(session, content_id, token)
+    for idx, content_id in enumerate(content_ids, 1):
+        print(f"\n{'='*60}")
+        print(f"[{idx}/{len(content_ids)}] Content ID: {content_id}")
+        print(f"{'='*60}")
 
-    print(f"[*] Nome: {data.get('name', content_id)}")
-    download_node(session, data, args.output_dir)
+        data = get_content(session, content_id, token)
+        print(f"[*] Nome: {data.get('name', content_id)}")
+        download_node(session, data, args.output_dir)
 
 
 if __name__ == '__main__':
