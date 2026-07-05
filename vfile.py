@@ -29,13 +29,12 @@ except ImportError:
     HAS_REQUESTS = False
 
 
+ORIGINAL_DISPLAY = os.environ.get('DISPLAY')
 VIRTUAL_DISPLAY = None
 
 
 def start_virtual_display():
     global VIRTUAL_DISPLAY
-    if os.environ.get('DISPLAY'):
-        return
 
     try:
         from pyvirtualdisplay import Display
@@ -65,11 +64,9 @@ def start_virtual_display():
     except FileNotFoundError:
         pass
 
-    print("[!] Nessun display disponibile e Xvfb non trovato.")
-    print("    Installa xvfb-run o pyvirtualdisplay:")
-    print("      apt install xvfb  (o zypper install xorg-x11-server)")
-    print("      pip install pyvirtualdisplay")
-    print("    Oppure usa: xvfb-run python vfile.py ...")
+    print("[!] Xvfb non trovato. Installalo:")
+    print("    apt install xvfb  (o zypper install xorg-x11-server)")
+    print("    Oppure: pip install pyvirtualdisplay")
     sys.exit(1)
 
 
