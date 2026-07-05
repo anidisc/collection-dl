@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""
+Gofile downloader.
+
+Creates a guest account via the Gofile API, then fetches the content tree
+(files/folders) for a given content ID and downloads everything recursively.
+"""
 import os
 import sys
 import re
@@ -11,6 +17,7 @@ import requests
 from tqdm import tqdm
 
 
+# Standard browser headers; the Origin and Referer are required by the API.
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                   'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -23,12 +30,34 @@ API_SERVER = 'api.gofile.io'
 
 
 def _wt(token=''):
+    """
+    Generate the Gofile X-Website-Token (a time-based, user-agent-dependent
+    SHA-256 hash).
+
+    The slot changes every 4 hours (14400 seconds).  The token helps the
+    server verify that the request comes from a genuine browser session.
+
+    Args:
+        token: The current account token (empty string for guest creation).
+
+    Returns:
+        SHA-256 hex digest string.
+    """
     slot = int(time.time()) // 14400
     raw = f"{HEADERS['User-Agent']}::en-US::{token}::{slot}::9844d94d963d30"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def get_guest_token(session):
+    """
+    Create a new guest account with Gofile and return its token.
+
+    Args:
+        session: requests.Session with headers already set.
+
+    Returns:
+        Guest account token string.
+    """
     r = session.post(f'https://{API_SERVER}/accounts', headers={
         'X-Website-Token': _wt(),
         'X-BL': 'en-US',
@@ -37,6 +66,17 @@ def get_guest_token(session):
 
 
 def get_content(session, content_id, token):
+    """
+    Fetch the content tree (files and folders) for a given content ID.
+
+    Args:
+        session:    requests.Session.
+        content_id: The content/folder ID from the URL.
+        token:      Guest account token for authorisation.
+
+    Returns:
+        Dictionary with the content tree (the 'data' portion of the API response).
+    """
     r = session.get(
         f'https://{API_SERVER}/contents/{content_id}',
         headers={
@@ -52,6 +92,17 @@ def get_content(session, content_id, token):
 
 
 def download_node(session, node, base_dir):
+    """
+    Recursively download a node from the Gofile content tree.
+
+    If the node is a folder, its children are downloaded recursively into
+    a sub-directory.  If the node is a file, the file is streamed to disk.
+
+    Args:
+        session:  requests.Session.
+        node:     Dictionary representing a Gofile content node.
+        base_dir: Local directory to write into.
+    """
     if node['type'] == 'folder':
         folder_name = re.sub(r'[<>:"/\\|?*]', '', node.get('name', node['id']))
         folder_path = os.path.join(base_dir, folder_name)
@@ -82,6 +133,7 @@ def download_node(session, node, base_dir):
 
 
 def main():
+    """CLI entry point: parse args, create guest account, fetch tree, download."""
     parser = argparse.ArgumentParser(description='Download file da Gofile')
     parser.add_argument('input', help='URL o ID (es. https://gofile.io/d/NCj7TH)')
     parser.add_argument('-o', '--output-dir', default='.', help='Directory di destinazione')
@@ -95,6 +147,7 @@ def main():
 
     print("[*] Creazione account guest...")
     token = get_guest_token(session)
+    # Persist the token as a cookie so subsequent API calls are authenticated.
     session.cookies.set('accountToken', token, domain='.gofile.io', path='/')
 
     print("[*] Richiesta informazioni contenuto...")

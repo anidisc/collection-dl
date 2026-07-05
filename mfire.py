@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""
+MediaFire downloader.
+
+Accepts a MediaFire page URL or a file key and produces a direct download
+link, then downloads the file with a progress bar.
+"""
 import os
 import sys
 import re
@@ -10,6 +16,7 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+# Standard browser headers used for all requests to MediaFire.
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) '
                   'Gecko/20100101 Firefox/131.0',
@@ -21,6 +28,18 @@ MEDIAFIRE_DOMAIN = 'mediafire.com'
 
 
 def resolve_url(input_str):
+    """
+    Normalise a user-supplied URL or file key into a full MediaFire page URL.
+
+    Args:
+        input_str: A URL containing 'mediafire.com' or a 13+-char alphanumeric key.
+
+    Returns:
+        Full MediaFire page URL.
+
+    Raises:
+        ValueError if the input does not match any known pattern.
+    """
     input_str = input_str.strip()
     if MEDIAFIRE_DOMAIN in input_str:
         return input_str.rstrip('/')
@@ -30,6 +49,18 @@ def resolve_url(input_str):
 
 
 def get_download_button_href(soup):
+    """
+    Extract the download link from the page's #downloadButton anchor.
+
+    MediaFire stores the real URL either directly in the `href` attribute
+    or as a base64-encoded string in `data-scrambled-url`.
+
+    Args:
+        soup: BeautifulSoup object of the page.
+
+    Returns:
+        Decoded download URL, or None.
+    """
     btn = soup.find('a', {'id': 'downloadButton'})
     if not btn:
         return None
@@ -44,9 +75,23 @@ def get_download_button_href(soup):
 
 
 def get_direct_url(url):
+    """
+    Fetch the MediaFire page and locate the real download URL.
+
+    If the server returns a binary blob (e.g. the file itself) instead of
+    HTML, the response URL is already the direct link.
+
+    Args:
+        url: Full MediaFire page URL.
+
+    Returns:
+        Tuple of (direct_download_url, BeautifulSoup_soup_or_None).
+    """
     resp = requests.get(url, headers=HEADERS, timeout=30)
     resp.raise_for_status()
 
+    # MediaFire sometimes gzips even non-HTML responses, so check both
+    # Content-Type and Content-Encoding.
     is_html = (
         'text/html' in resp.headers.get('Content-Type', '')
         or resp.headers.get('Content-Encoding') == 'gzip'
@@ -58,6 +103,8 @@ def get_direct_url(url):
     soup = BeautifulSoup(resp.text, 'html.parser')
     direct = get_download_button_href(soup)
 
+    # Fallback: regex-based extraction from raw HTML if the button parser
+    # did not find anything.
     if not direct:
         match = re.search(r'href="((https?://download[^"]+))"', resp.text)
         if match:
@@ -70,6 +117,17 @@ def get_direct_url(url):
 
 
 def extract_filename(soup, direct_url):
+    """
+    Determine the real file name, preferring the Content-Disposition header.
+
+    Args:
+        soup:       BeautifulSoup object (may be None).
+        direct_url: Direct download URL used for a HEAD request.
+
+    Returns:
+        File name string, or None.
+    """
+    # 1) Content-Disposition header (most reliable).
     resp = requests.head(direct_url, headers=HEADERS, timeout=30)
     cd = resp.headers.get('content-disposition', '')
     m = re.search(r'filename\*?=([^;]+)', cd)
@@ -80,6 +138,7 @@ def extract_filename(soup, direct_url):
         name = unquote(name)
         if name:
             return name
+    # 2) Page <title> with "MediaFire" stripped out.
     title_el = soup.find('title') if soup else None
     if title_el:
         name = title_el.string.strip() if title_el.string else ''
@@ -91,6 +150,17 @@ def extract_filename(soup, direct_url):
 
 
 def download_file(url, filename, output_dir='.'):
+    """
+    Stream a file from *url* to disk, displaying a tqdm progress bar.
+
+    Args:
+        url:         Direct download URL.
+        filename:    Local file name.
+        output_dir:  Output directory (created if missing).
+
+    Returns:
+        Absolute path to the saved file.
+    """
     os.makedirs(output_dir, exist_ok=True)
     filepath = os.path.join(output_dir, filename)
 
@@ -115,6 +185,7 @@ def download_file(url, filename, output_dir='.'):
 
 
 def main():
+    """CLI entry point: parse args, resolve, extract direct link, download."""
     parser = argparse.ArgumentParser(description='Download file da MediaFire')
     parser.add_argument('input', help='URL del file MediaFire (es. https://www.mediafire.com/file/.../file)')
     parser.add_argument('-o', '--output-dir', default='.', help='Directory di destinazione')
