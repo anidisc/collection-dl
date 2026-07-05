@@ -2,6 +2,9 @@
 import os
 import sys
 import re
+import subprocess
+import atexit
+import signal
 import argparse
 from urllib.parse import urlparse
 
@@ -26,6 +29,63 @@ except ImportError:
     HAS_REQUESTS = False
 
 
+VIRTUAL_DISPLAY = None
+
+
+def start_virtual_display():
+    global VIRTUAL_DISPLAY
+    if os.environ.get('DISPLAY'):
+        return
+
+    try:
+        from pyvirtualdisplay import Display
+        VIRTUAL_DISPLAY = Display(visible=False, size=(1280, 720))
+        VIRTUAL_DISPLAY.start()
+        return
+    except ImportError:
+        pass
+
+    try:
+        proc = subprocess.Popen(
+            ['Xvfb', ':99', '-screen', '0', '1280x720x24'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        os.environ['DISPLAY'] = ':99'
+        VIRTUAL_DISPLAY = proc
+
+        def cleanup():
+            if VIRTUAL_DISPLAY and hasattr(VIRTUAL_DISPLAY, 'poll') and VIRTUAL_DISPLAY.poll() is None:
+                VIRTUAL_DISPLAY.terminate()
+                VIRTUAL_DISPLAY.wait()
+
+        atexit.register(cleanup)
+        signal.signal(signal.SIGTERM, lambda *a: (cleanup(), sys.exit(0)))
+        signal.signal(signal.SIGINT, lambda *a: (cleanup(), sys.exit(0)))
+        return
+    except FileNotFoundError:
+        pass
+
+    print("[!] Nessun display disponibile e Xvfb non trovato.")
+    print("    Installa xvfb-run o pyvirtualdisplay:")
+    print("      apt install xvfb  (o zypper install xorg-x11-server)")
+    print("      pip install pyvirtualdisplay")
+    print("    Oppure usa: xvfb-run python vfile.py ...")
+    sys.exit(1)
+
+
+def stop_virtual_display():
+    global VIRTUAL_DISPLAY
+    if VIRTUAL_DISPLAY is None:
+        return
+    if hasattr(VIRTUAL_DISPLAY, 'stop'):
+        VIRTUAL_DISPLAY.stop()
+    elif hasattr(VIRTUAL_DISPLAY, 'terminate'):
+        if VIRTUAL_DISPLAY.poll() is None:
+            VIRTUAL_DISPLAY.terminate()
+            VIRTUAL_DISPLAY.wait()
+    VIRTUAL_DISPLAY = None
+
+
 def resolve_url(input_str):
     input_str = input_str.strip()
     if 'vikingfile.com' in input_str or 'vik1ngfile.site' in input_str:
@@ -42,6 +102,8 @@ def get_filename_from_url(url):
 def browser_flow(url):
     if not HAS_PLAYWRIGHT:
         return None, None
+
+    start_virtual_display()
 
     download_url = None
     filename = None
@@ -89,7 +151,7 @@ def browser_flow(url):
             filename = re.sub(r'[<>:"/\\|?*]', '', filename)
 
         print(f"[*] File: {filename or 'sconosciuto'}")
-        print("[*] Browser aperto. Risolvi il captcha nella finestra...")
+        print("[*] Browser aperto (display virtuale). Risolvi il captcha...")
         print("[*] Attendendo...")
 
         while not download_url:
@@ -98,10 +160,13 @@ def browser_flow(url):
             except KeyboardInterrupt:
                 print("\n[*] Interrotto dall'utente")
                 browser.close()
+                stop_virtual_display()
                 sys.exit(1)
 
         print("[*] Captcha risolto, link diretto ottenuto!")
         browser.close()
+
+    stop_virtual_display()
 
     return download_url, filename
 
@@ -162,21 +227,9 @@ def main():
     else:
         print("[!] Playwright non installato.")
         print()
-        print("  Opzione 1 — Installa Playwright:")
-        print("    pip install playwright && playwright install chromium")
+        print("  pip install playwright && playwright install chromium")
         print()
-        print("  Opzione 2 — Usa --direct:")
-        print("    1. Apri il link nel browser")
-        print("    2. Risolvi il captcha")
-        print("    3. Dal devtools (F12 > Rete) copia il link")
-        print("       della risposta POST (campo 'link')")
-        print("    4. Esegui:")
-        print(f"       python vfile.py {url.split('/')[-1]} --direct <URL>")
-        print()
-        print("  Opzione 3 — Usa un servizio come capsolver.com per")
-        print("    ottenere il token Turnstile, poi esegui manualmente:")
-        print("    curl -X POST <URL> \\")
-        print("      -d 'cf-turnstile-response=<TOKEN>&ipv4=<IP>&ipv6='")
+        print("  Oppure usa --direct (vedi --help)")
         sys.exit(1)
 
     if not filename:
