@@ -2,43 +2,62 @@
 # ------------------------------------------------------------------
 # dl — unified launcher for collection-dl scripts.
 #
-# Reads buzzdl.conf for the Python interpreter path, then delegates
-# to the requested script.  This ensures all scripts run under the
-# same interpreter (e.g. a virtual environment).
+# Reads buzzdl.conf for the Python interpreter and scripts directory,
+# then delegates to the requested script.  This ensures all scripts
+# run under the same interpreter (e.g. a virtual environment).
 #
 # Usage:
-#   ./dl buzzdl.py https://bzzhr.to/xxxx
-#   ./dl mfire.py https://mediafire.com/...
-#   ./dl gfile.py NCj7TH
+#   dl buzzdl https://bzzhr.to/xxxx
+#   dl gfile NCj7TH -s "*.zip"
 #
 # Config file (buzzdl.conf):
 #   python=/path/to/python3
+#   scripts_dir=/path/to/scripts
 # ------------------------------------------------------------------
 set -euo pipefail
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG="$DIR/buzzdl.conf"
+# Resolve the wrapper's own directory, even when invoked via PATH/symlink.
+SELF="$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")"
+WRAPPER_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+CONFIG="$WRAPPER_DIR/buzzdl.conf"
 
+# --- Read config -------------------------------------------------------
 PYTHON=""
+SCRIPTS_DIR=""
+
 if [[ -f "$CONFIG" ]]; then
-    # Read python= from config, skip comments and blank lines
     PYTHON=$(grep -E '^python=' "$CONFIG" 2>/dev/null | tail -1 | cut -d= -f2- | xargs)
+    SCRIPTS_DIR=$(grep -E '^scripts_dir=' "$CONFIG" 2>/dev/null | tail -1 | cut -d= -f2- | xargs)
 fi
 
 PYTHON="${PYTHON:-python3}"
+SCRIPTS_DIR="${SCRIPTS_DIR:-$WRAPPER_DIR}"
 
+# --- Help / list scripts -----------------------------------------------
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <script.py> [args...]"
+    echo "Usage: ${0##*/} <script> [args...]"
     echo ""
     echo "Available scripts:"
-    for s in "$DIR"/buzzdl.py "$DIR"/mfire.py "$DIR"/wupload.py "$DIR"/gfile.py "$DIR"/pdrain.py; do
-        if [[ -f "$s" ]]; then
-            name=$(basename "$s" .py)
-            desc=$(sed -n '3p' "$s" | sed 's/^[[:space:]]*//; s/\.$//')
-            printf "  %-10s %s\n" "$name" "$desc"
+    for s in buzzdl mfire wupload gfile pdrain; do
+        path="$SCRIPTS_DIR/$s.py"
+        if [[ -f "$path" ]]; then
+            desc=$(sed -n '3p' "$path" | sed 's/^[[:space:]]*//; s/\.$//')
+            printf "  %-10s %s\n" "$s" "$desc"
         fi
     done
     exit 1
 fi
 
-exec "$PYTHON" "$@"
+# --- Dispatch ----------------------------------------------------------
+SCRIPT="${1%.py}"        # strip .py if given
+shift
+
+CMD="$SCRIPTS_DIR/$SCRIPT.py"
+
+if [[ ! -f "$CMD" ]]; then
+    echo "Script non trovato: $CMD" >&2
+    echo "Usa ${0##*/} senza argomenti per vedere la lista script." >&2
+    exit 1
+fi
+
+exec "$PYTHON" "$CMD" "$@"
