@@ -1,0 +1,44 @@
+#!/bin/bash
+# ------------------------------------------------------------------
+# dl — unified launcher for collection-dl scripts.
+#
+# Reads buzzdl.conf for the Python interpreter path, then delegates
+# to the requested script.  This ensures all scripts run under the
+# same interpreter (e.g. a virtual environment).
+#
+# Usage:
+#   ./dl buzzdl.py https://bzzhr.to/xxxx
+#   ./dl mfire.py https://mediafire.com/...
+#   ./dl gfile.py NCj7TH
+#
+# Config file (buzzdl.conf):
+#   python=/path/to/python3
+# ------------------------------------------------------------------
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG="$DIR/buzzdl.conf"
+
+PYTHON=""
+if [[ -f "$CONFIG" ]]; then
+    # Read python= from config, skip comments and blank lines
+    PYTHON=$(grep -E '^python=' "$CONFIG" 2>/dev/null | tail -1 | cut -d= -f2- | xargs)
+fi
+
+PYTHON="${PYTHON:-python3}"
+
+if [[ $# -lt 1 ]]; then
+    echo "Usage: $0 <script.py> [args...]"
+    echo ""
+    echo "Available scripts:"
+    for s in "$DIR"/buzzdl.py "$DIR"/mfire.py "$DIR"/wupload.py "$DIR"/gfile.py "$DIR"/pdrain.py; do
+        if [[ -f "$s" ]]; then
+            name=$(basename "$s" .py)
+            desc=$(sed -n '3p' "$s" | sed 's/^[[:space:]]*//; s/\.$//')
+            printf "  %-10s %s\n" "$name" "$desc"
+        fi
+    done
+    exit 1
+fi
+
+exec "$PYTHON" "$@"
