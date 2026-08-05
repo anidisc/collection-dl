@@ -129,7 +129,12 @@ def get_direct_url(url):
 
 def download_file(url, filename, output_dir='.'):
     """
-    Stream the file from *url* to disk, showing a tqdm progress bar.
+    Stream the file from *url* to disk with resume support.
+
+    The file is first written to ``<filename>.part``.  If a partial file
+    already exists, a ``Range`` header is sent so the download continues
+    where it left off.  On completion the ``.part`` file is renamed to
+    the final name.
 
     Args:
         url:         Direct download URL.
@@ -141,23 +146,39 @@ def download_file(url, filename, output_dir='.'):
     """
     os.makedirs(output_dir, exist_ok=True)
     filepath = os.path.join(output_dir, filename)
+    partpath = os.path.join(output_dir, filename + '.part')
 
     if os.path.exists(filepath):
         print(f"[✓] {filename} — già scaricato")
         return filepath
 
-    resp = curl_requests.get(url, impersonate='chrome', stream=True)
-    resp.raise_for_status()
-    total = int(resp.headers.get('content-length', 0))
+    existing = os.path.getsize(partpath) if os.path.exists(partpath) else 0
+    headers = {'Range': f'bytes={existing}-'} if existing else {}
 
-    with open(filepath, 'wb') as f, tqdm(
-        total=total, unit='B', unit_scale=True, desc=filename, leave=True
+    resp = curl_requests.get(url, impersonate='chrome', headers=headers, stream=True)
+    resp.raise_for_status()
+
+    # If the server ignored the Range header we restart from zero.
+    resumed = existing > 0 and resp.status_code == 206
+    if resumed:
+        print(f"[*] Ripresa da {existing} byte")
+        total = int(resp.headers.get('content-length', 0)) + existing
+        mode = 'ab'
+    else:
+        existing = 0
+        total = int(resp.headers.get('content-length', 0))
+        mode = 'wb'
+
+    with open(partpath, mode) as f, tqdm(
+        total=total, initial=existing, unit='B', unit_scale=True,
+        desc=filename, leave=True,
     ) as bar:
         for chunk in resp.iter_content(chunk_size=65536):
             if chunk:
                 f.write(chunk)
                 bar.update(len(chunk))
 
+    os.replace(partpath, filepath)
     print(f"[✓] Salvato: {filepath}")
     return filepath
 
