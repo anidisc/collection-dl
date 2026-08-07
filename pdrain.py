@@ -98,17 +98,37 @@ def download_file(file_id, output_dir='.', verify=True):
 
     filepath = os.path.join(output_dir, filename)
     if os.path.exists(filepath):
+        resp.close()
         print(f"[✓] {filename} — già scaricato")
         return filepath
 
-    total = int(resp.headers.get('Content-Length', 0))
-    with open(filepath, 'wb') as f, tqdm(
-        total=total, unit='B', unit_scale=True, desc=filename, leave=True
+    partpath = filepath + '.part'
+    existing = os.path.getsize(partpath) if os.path.exists(partpath) else 0
+    if existing:
+        resp.close()
+        resp = requests.get(api_url, headers={**headers, 'Range': f'bytes={existing}-'},
+                            stream=True, timeout=30, verify=verify)
+        resp.raise_for_status()
+
+    resumed = existing > 0 and resp.status_code == 206
+    if resumed:
+        print(f"[*] Ripresa da {existing} byte")
+        total = int(resp.headers.get('Content-Length', 0)) + existing
+        mode = 'ab'
+    else:
+        existing = 0
+        total = int(resp.headers.get('Content-Length', 0))
+        mode = 'wb'
+
+    with open(partpath, mode) as f, tqdm(
+        total=total, initial=existing, unit='B', unit_scale=True,
+        desc=filename, leave=True,
     ) as bar:
         for chunk in resp.iter_content(chunk_size=65536):
             if chunk:
                 f.write(chunk)
                 bar.update(len(chunk))
+    os.replace(partpath, filepath)
 
     print(f"[✓] Salvato: {filepath}")
     return filepath
